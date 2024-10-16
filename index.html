@@ -5,29 +5,15 @@
     <title>Halloween WebXR Event</title>
     <style>
         body { margin: 0; overflow: hidden; }
-        #enterVR {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 24px;
-            background: orange;
-            color: white;
-            font-size: 18px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        #enterVR:hover {
-            background: darkorange;
-        }
+        /* Removed custom VR button styles */
     </style>
 </head>
 <body>
-    <button id="enterVR">Enter VR</button>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/jsm/webxr/VRButton.js"></script>
-    <script>
+    <!-- No custom VR button needed -->
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.module.js';
+        import { VRButton } from 'https://cdn.jsdelivr.net/npm/three@0.148.0/examples/jsm/webxr/VRButton.js';
+
         // Initialize scene, camera, and renderer
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x000000); // Black background for night
@@ -147,15 +133,6 @@
         }
 
         animate();
-
-        // Optional: Add event listener for custom VR button
-        const enterVRButton = document.getElementById('enterVR');
-        enterVRButton.addEventListener('click', () => {
-            renderer.xr.enabled = true;
-            navigator.xr.requestSession('immersive-vr').then(session => {
-                renderer.xr.setSession(session);
-            });
-        });
     </script>
 </body>
 </html>
