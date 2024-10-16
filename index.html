@@ -1,9 +1,9 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>AR Ghost Hunt</title>
-  <link rel="stylesheet" href="styles.css">
   <style>
     body {
       margin: 0;
@@ -58,7 +58,181 @@
   <div id="instructions" style="display: none;">Tap on ghosts to capture them!</div>
   <button id="startButton">Start AR Ghost Hunt</button>
   
-  <!-- Main Script -->
-  <script type="module" src="/app.js"></script>
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js';
+    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js';
+
+    let camera, scene, renderer;
+    let controller;
+    let score = 0;
+    const ghosts = [];
+    let spawnInterval;
+
+    const scoreElement = document.getElementById('score');
+    const startButton = document.getElementById('startButton');
+    const instructions = document.getElementById('instructions');
+
+    startButton.addEventListener('click', () => {
+      initAR();
+      startButton.style.display = 'none';
+      instructions.style.display = 'block';
+    });
+
+    function initAR() {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+      scene.add(camera);
+
+      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+      light.position.set(0.5, 1, 0.25);
+      scene.add(light);
+
+      controller = renderer.xr.getController(0);
+      controller.addEventListener('select', onSelect);
+      scene.add(controller);
+
+      navigator.xr.requestSession('immersive-ar', {
+        requiredFeatures: ['hit-test'],
+        optionalFeatures: ['dom-overlay'],
+        domOverlay: { root: document.body }
+      }).then((session) => {
+        renderer.xr.setSession(session);
+      }).catch((err) => {
+        console.error("Failed to start AR session:", err);
+        alert("Unable to start AR session. Please try again.");
+      });
+
+      spawnInterval = setInterval(spawnGhost, 3000);
+
+      window.addEventListener('resize', onWindowResize, false);
+
+      renderer.setAnimationLoop(render);
+    }
+
+    function onWindowResize() {
+      if (camera) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+      }
+      if (renderer) {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+    }
+
+    function spawnGhost() {
+      const loader = new GLTFLoader();
+      const modelPath = './ghost.glb';
+
+      loader.load(
+        modelPath,
+        function (gltf) {
+          const ghost = gltf.scene;
+          ghost.scale.set(0.5, 0.5, 0.5);
+          const range = 2;
+          ghost.position.set(
+            (Math.random() - 0.5) * range,
+            (Math.random() - 0.5) * range * 0.5,
+            - (Math.random() * range + 1)
+          );
+          ghost.userData = { velocity: new THREE.Vector3(0, 0.001 * Math.random(), 0) };
+          scene.add(ghost);
+          ghosts.push(ghost);
+        },
+        undefined,
+        function (error) {
+          console.error('Error loading ghost model:', error);
+          const geometry = new THREE.SphereGeometry(0.1, 32, 32);
+          const material = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.7,
+            emissive: 0x4444ff,
+            emissiveIntensity: 1
+          });
+          const ghost = new THREE.Mesh(geometry, material);
+          const range = 2;
+          ghost.position.set(
+            (Math.random() - 0.5) * range,
+            (Math.random() - 0.5) * range * 0.5,
+            - (Math.random() * range + 1)
+          );
+          ghost.userData = { velocity: new THREE.Vector3(0, 0.001 * Math.random(), 0) };
+          scene.add(ghost);
+          ghosts.push(ghost);
+        }
+      );
+    }
+
+    function onSelect() {
+      const tempMatrix = new THREE.Matrix4();
+      tempMatrix.identity().extractRotation(controller.matrixWorld);
+
+      const ray = new THREE.Raycaster();
+      ray.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+      ray.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+      const intersects = ray.intersectObjects(ghosts, true);
+
+      if (intersects.length > 0) {
+        const intersectedGhost = intersects[0].object;
+        let parent = intersectedGhost;
+        while (parent.parent && !ghosts.includes(parent)) {
+          parent = parent.parent;
+        }
+
+        if (ghosts.includes(parent)) {
+          scene.remove(parent);
+          const index = ghosts.indexOf(parent);
+          if (index > -1) {
+            ghosts.splice(index, 1);
+          }
+          score += 1;
+          scoreElement.innerText = `Score: ${score}`;
+          flashCaptureEffect(parent.position);
+        }
+      }
+    }
+
+    function render() {
+      ghosts.forEach((ghost) => {
+        if (ghost.userData.velocity) {
+          ghost.position.add(ghost.userData.velocity);
+          ghost.position.y += Math.sin(Date.now() * 0.001) * 0.001;
+        }
+      });
+      renderer.render(scene, camera);
+    }
+
+    function flashCaptureEffect(position) {
+      const flashGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+      const flashMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 1 });
+      const flash = new THREE.Mesh(flashGeometry, flashMaterial);
+      flash.position.copy(position);
+      scene.add(flash);
+
+      const duration = 300;
+      const startTime = performance.now();
+
+      function animateFlash(time) {
+        const elapsed = time - startTime;
+        if (elapsed < duration) {
+          flash.material.opacity = 1 - (elapsed / duration);
+          flash.scale.setScalar(1 + (elapsed / duration) * 2);
+          requestAnimationFrame(animateFlash);
+        } else {
+          scene.remove(flash);
+        }
+      }
+
+      requestAnimationFrame(animateFlash);
+    }
+  </script>
 </body>
 </html>
+```
