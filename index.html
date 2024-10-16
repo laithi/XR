@@ -14,14 +14,7 @@
             color: white;
             font-family: Arial, sans-serif;
             padding: 5px;
-        }
-        #info a {
-            color: #00aaff;
-            text-decoration: none;
-            font-weight: bold;
-        }
-        #info a:hover {
-            text-decoration: underline;
+            background: rgba(0, 0, 0, 0.5);
         }
     </style>
 </head>
@@ -32,7 +25,6 @@
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.module.js';
         import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.148.0/examples/jsm/webxr/ARButton.js';
-        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.148.0/examples/jsm/loaders/GLTFLoader.js';
 
         let camera, scene, renderer;
         let controller;
@@ -74,9 +66,9 @@
             scene.add(controller);
 
             // Set up reticle for hit-testing
-            const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(- Math.PI / 2);
-            const reticleMaterial = new THREE.MeshBasicMaterial({ color: 0x0fff00 });
-            reticle = new THREE.Mesh(reticleGeometry, reticleMaterial);
+            const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(- Math.PI / 2);
+            const material = new THREE.MeshBasicMaterial({ color: 0x0fff00 });
+            reticle = new THREE.Mesh(geometry, material);
             reticle.visible = false;
             scene.add(reticle);
 
@@ -101,28 +93,22 @@
             }
         }
 
-        // Function to get a random Halloween object
+        // Function to get a random Halloween object (using basic geometries)
         function getRandomHalloweenObject() {
-            const loader = new GLTFLoader();
-            const objects = ['pumpkin.glb', 'ghost.glb']; // Add paths to your GLTF models
-            const selected = objects[Math.floor(Math.random() * objects.length)];
-            const gltf = loader.parse('', '', (gltf) => {
-                return gltf.scene;
-            });
-            
-            // For simplicity, using basic geometries. Replace with actual model loading.
             const random = Math.random();
             if (random < 0.5) {
                 // Create a pumpkin
                 const pumpkinGeometry = new THREE.SphereGeometry(0.2, 32, 32);
                 const pumpkinMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600 });
                 const pumpkin = new THREE.Mesh(pumpkinGeometry, pumpkinMaterial);
+                
                 // Add stem
                 const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8);
                 const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
                 const stem = new THREE.Mesh(stemGeometry, stemMaterial);
                 stem.position.y = 0.25;
                 pumpkin.add(stem);
+                
                 return pumpkin;
             } else {
                 // Create a ghost
@@ -145,9 +131,8 @@
                 const session = renderer.xr.getSession();
 
                 // Perform hit-test
-                const hitTestSource = session.hitTestSource;
-                if (hitTestSource) {
-                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+                if (session.hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(session.hitTestSource);
                     if (hitTestResults.length) {
                         const hit = hitTestResults[0];
                         const pose = hit.getPose(referenceSpace);
@@ -159,10 +144,11 @@
                 }
             }
 
-            // Animate objects (e.g., ghosts floating)
+            // Optional: Animate objects (e.g., make ghosts float)
             objects.forEach(obj => {
-                if (obj.userData.animation) {
-                    // Implement any custom animations here
+                if (obj.material.opacity < 1) {
+                    obj.material.opacity += 0.005;
+                    if (obj.material.opacity >= 1) obj.material.opacity = 1;
                 }
             });
 
@@ -172,16 +158,18 @@
         // Initialize hit-test
         renderer.xr.addEventListener('sessionstart', () => {
             const session = renderer.xr.getSession();
-            const viewerSpace = renderer.xr.getReferenceSpace();
             session.requestReferenceSpace('viewer').then((refSpace) => {
                 session.requestHitTestSource({ space: refSpace }).then((hitTestSource) => {
-                    renderer.xr.getSession().hitTestSource = hitTestSource;
+                    session.hitTestSource = hitTestSource;
+                }).catch((err) => {
+                    console.error('Hit test source failed:', err);
                 });
             });
         });
 
         renderer.xr.addEventListener('sessionend', () => {
-            renderer.xr.getSession().hitTestSource = null;
+            const session = renderer.xr.getSession();
+            session.hitTestSource = null;
         });
     </script>
 </body>
