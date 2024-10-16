@@ -1,236 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>AR Ghost Hunt</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
-      background-color: #000;
-    }
-    #score {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      color: white;
-      background: rgba(0,0,0,0.5);
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 24px;
-      z-index: 1;
-    }
-    #instructions {
-      position: absolute;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: white;
-      background: rgba(0,0,0,0.5);
-      padding: 10px 20px;
-      border-radius: 10px;
-      font-size: 16px;
-      z-index: 1;
-    }
-    #startButton {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 15px 30px;
-      font-size: 20px;
-      background-color: #ff5722;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      z-index: 2;
-    }
-    #startButton:hover {
-      background-color: #e64a19;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Halloween WebXR Event</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #enterVR {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background: orange;
+            color: white;
+            font-size: 18px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #enterVR:hover {
+            background: darkorange;
+        }
+    </style>
 </head>
 <body>
-  <div id="score">Score: 0</div>
-  <div id="instructions" style="display: none;">Tap on ghosts to capture them!</div>
-  <button id="startButton">Start AR Ghost Hunt</button>
-  
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/loaders/GLTFLoader.js';
+    <button id="enterVR">Enter VR</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/jsm/webxr/VRButton.js"></script>
+    <script>
+        // Initialize scene, camera, and renderer
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x000000); // Black background for night
 
-    let camera, scene, renderer;
-    let controller;
-    let score = 0;
-    const ghosts = [];
-    let spawnInterval;
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.6, 3); // Typical eye height in meters
 
-    const scoreElement = document.getElementById('score');
-    const startButton = document.getElementById('startButton');
-    const instructions = document.getElementById('instructions');
-
-    startButton.addEventListener('click', () => {
-      initAR();
-      startButton.style.display = 'none';
-      instructions.style.display = 'block';
-    });
-
-    function initAR() {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.xr.enabled = true;
-      document.body.appendChild(renderer.domElement);
-
-      scene = new THREE.Scene();
-
-      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-      scene.add(camera);
-
-      const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-      light.position.set(0.5, 1, 0.25);
-      scene.add(light);
-
-      controller = renderer.xr.getController(0);
-      controller.addEventListener('select', onSelect);
-      scene.add(controller);
-
-      navigator.xr.requestSession('immersive-ar', {
-        requiredFeatures: ['hit-test'],
-        optionalFeatures: ['dom-overlay'],
-        domOverlay: { root: document.body }
-      }).then((session) => {
-        renderer.xr.setSession(session);
-      }).catch((err) => {
-        console.error("Failed to start AR session:", err);
-        alert("Unable to start AR session. Please try again.");
-      });
-
-      spawnInterval = setInterval(spawnGhost, 3000);
-
-      window.addEventListener('resize', onWindowResize, false);
-
-      renderer.setAnimationLoop(render);
-    }
-
-    function onWindowResize() {
-      if (camera) {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-      }
-      if (renderer) {
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-      }
-    }
+        renderer.xr.enabled = true;
+        document.body.appendChild(renderer.domElement);
 
-    function spawnGhost() {
-      const loader = new GLTFLoader();
-      const modelPath = './ghost.glb';
+        // Add VR Button
+        document.body.appendChild(VRButton.createButton(renderer));
 
-      loader.load(
-        modelPath,
-        function (gltf) {
-          const ghost = gltf.scene;
-          ghost.scale.set(0.5, 0.5, 0.5);
-          const range = 2;
-          ghost.position.set(
-            (Math.random() - 0.5) * range,
-            (Math.random() - 0.5) * range * 0.5,
-            - (Math.random() * range + 1)
-          );
-          ghost.userData = { velocity: new THREE.Vector3(0, 0.001 * Math.random(), 0) };
-          scene.add(ghost);
-          ghosts.push(ghost);
-        },
-        undefined,
-        function (error) {
-          console.error('Error loading ghost model:', error);
-          const geometry = new THREE.SphereGeometry(0.1, 32, 32);
-          const material = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.7,
-            emissive: 0x4444ff,
-            emissiveIntensity: 1
-          });
-          const ghost = new THREE.Mesh(geometry, material);
-          const range = 2;
-          ghost.position.set(
-            (Math.random() - 0.5) * range,
-            (Math.random() - 0.5) * range * 0.5,
-            - (Math.random() * range + 1)
-          );
-          ghost.userData = { velocity: new THREE.Vector3(0, 0.001 * Math.random(), 0) };
-          scene.add(ghost);
-          ghosts.push(ghost);
-        }
-      );
-    }
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
 
-    function onSelect() {
-      const tempMatrix = new THREE.Matrix4();
-      tempMatrix.identity().extractRotation(controller.matrixWorld);
+        // Add ambient light
+        const ambientLight = new THREE.AmbientLight(0x404040, 2); // Soft white light
+        scene.add(ambientLight);
 
-      const ray = new THREE.Raycaster();
-      ray.ray.origin.setFromMatrixPosition(controller.matrixWorld);
-      ray.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+        // Add directional light for spooky effect
+        const directionalLight = new THREE.DirectionalLight(0xffaa33, 1);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
 
-      const intersects = ray.intersectObjects(ghosts, true);
+        // Create ground
+        const groundGeometry = new THREE.PlaneGeometry(20, 20);
+        const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
 
-      if (intersects.length > 0) {
-        const intersectedGhost = intersects[0].object;
-        let parent = intersectedGhost;
-        while (parent.parent && !ghosts.includes(parent)) {
-          parent = parent.parent;
+        // Function to create a pumpkin
+        function createPumpkin(x, z) {
+            const pumpkinGroup = new THREE.Group();
+
+            // Pumpkin body
+            const pumpkinGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const pumpkinMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600 });
+            const pumpkin = new THREE.Mesh(pumpkinGeometry, pumpkinMaterial);
+            pumpkin.position.y = 0.5;
+            pumpkinGroup.add(pumpkin);
+
+            // Pumpkin stem
+            const stemGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.2, 8);
+            const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+            stem.position.y = 0.7;
+            stem.rotation.x = Math.PI / 4;
+            pumpkinGroup.add(stem);
+
+            // Position the pumpkin
+            pumpkinGroup.position.set(x, 0, z);
+
+            scene.add(pumpkinGroup);
         }
 
-        if (ghosts.includes(parent)) {
-          scene.remove(parent);
-          const index = ghosts.indexOf(parent);
-          if (index > -1) {
-            ghosts.splice(index, 1);
-          }
-          score += 1;
-          scoreElement.innerText = `Score: ${score}`;
-          flashCaptureEffect(parent.position);
+        // Add multiple pumpkins
+        createPumpkin(-2, -2);
+        createPumpkin(2, -2);
+        createPumpkin(-2, 2);
+        createPumpkin(2, 2);
+        createPumpkin(0, 0);
+
+        // Add some spooky fog
+        const fog = new THREE.FogExp2(0x111111, 0.05);
+        scene.fog = fog;
+
+        // Add animated ghosts
+        function createGhost(x, y, z) {
+            const ghostGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+            const ghostMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+            const ghost = new THREE.Mesh(ghostGeometry, ghostMaterial);
+            ghost.position.set(x, y, z);
+            scene.add(ghost);
+
+            // Animate the ghost
+            const speed = Math.random() * 0.5 + 0.5;
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            const amplitude = Math.random() * 2 + 1;
+
+            ghost.userData = { speed, direction, amplitude, initialY: y };
+
+            return ghost;
         }
-      }
-    }
 
-    function render() {
-      ghosts.forEach((ghost) => {
-        if (ghost.userData.velocity) {
-          ghost.position.add(ghost.userData.velocity);
-          ghost.position.y += Math.sin(Date.now() * 0.001) * 0.001;
+        const ghosts = [];
+        for (let i = 0; i < 5; i++) {
+            ghosts.push(createGhost(
+                Math.random() * 10 - 5,
+                Math.random() * 2 + 1,
+                Math.random() * 10 - 5
+            ));
         }
-      });
-      renderer.render(scene, camera);
-    }
 
-    function flashCaptureEffect(position) {
-      const flashGeometry = new THREE.SphereGeometry(0.2, 32, 32);
-      const flashMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 1 });
-      const flash = new THREE.Mesh(flashGeometry, flashMaterial);
-      flash.position.copy(position);
-      scene.add(flash);
-
-      const duration = 300;
-      const startTime = performance.now();
-
-      function animateFlash(time) {
-        const elapsed = time - startTime;
-        if (elapsed < duration) {
-          flash.material.opacity = 1 - (elapsed / duration);
-          flash.scale.setScalar(1 + (elapsed / duration) * 2);
-          requestAnimationFrame(animateFlash);
-        } else {
-          scene.remove(flash);
+        // Animation loop
+        function animate() {
+            renderer.setAnimationLoop(render);
         }
-      }
 
-      requestAnimationFrame(animateFlash);
-    }
-  </script>
+        function render(time) {
+            // Animate ghosts
+            ghosts.forEach(ghost => {
+                ghost.position.y = ghost.userData.initialY + Math.sin(time * 0.001 * ghost.userData.speed) * 0.5;
+                ghost.position.x += Math.cos(time * 0.001 * ghost.userData.speed * ghost.userData.direction) * 0.01;
+                ghost.position.z += Math.sin(time * 0.001 * ghost.userData.speed * ghost.userData.direction) * 0.01;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Optional: Add event listener for custom VR button
+        const enterVRButton = document.getElementById('enterVR');
+        enterVRButton.addEventListener('click', () => {
+            renderer.xr.enabled = true;
+            navigator.xr.requestSession('immersive-vr').then(session => {
+                renderer.xr.setSession(session);
+            });
+        });
+    </script>
 </body>
 </html>
