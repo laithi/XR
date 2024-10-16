@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AR Halloween Event</title>
+    <title>AR Halloween Ghosts</title>
     <style>
         body { margin: 0; overflow: hidden; }
         #info {
@@ -20,7 +20,7 @@
 </head>
 <body>
     <div id="info">
-        <p>Point your device to place Halloween decorations! Ensure you have a stable internet connection and your device supports AR.</p>
+        <p>Tap the screen to place spooky ghosts in your environment!</p>
     </div>
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.module.js';
@@ -29,50 +29,45 @@
         let camera, scene, renderer;
         let controller;
         let reticle;
-        const objects = [];
+        const ghosts = [];
 
         init();
         animate();
 
         function init() {
-            // Create the scene
+            // Scene
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x000000);
 
-            // Set up the camera
-            camera = new THREE.PerspectiveCamera(
-                70,
-                window.innerWidth / window.innerHeight,
-                0.01,
-                20
-            );
+            // Camera
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
-            // Set up the renderer
+            // Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // Add AR button
+            // AR Button
             document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
 
-            // Add light
+            // Light
             const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
             scene.add(light);
 
-            // Set up controller for user input
+            // Controller
             controller = renderer.xr.getController(0);
             controller.addEventListener('select', onSelect);
             scene.add(controller);
 
-            // Set up reticle for hit-testing
+            // Reticle
             const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(- Math.PI / 2);
             const material = new THREE.MeshBasicMaterial({ color: 0x0fff00 });
             reticle = new THREE.Mesh(geometry, material);
             reticle.visible = false;
             scene.add(reticle);
 
-            // Handle window resize
+            // Window resize
             window.addEventListener('resize', onWindowResize, false);
         }
 
@@ -82,55 +77,56 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // Handle object placement
         function onSelect() {
             if (reticle.visible) {
-                const selectedObject = getRandomHalloweenObject();
-                selectedObject.position.setFromMatrixPosition(reticle.matrix);
-                selectedObject.scale.set(0.5, 0.5, 0.5); // Adjust scale as needed
-                scene.add(selectedObject);
-                objects.push(selectedObject);
+                const ghost = createGhost();
+                ghost.position.setFromMatrixPosition(reticle.matrix);
+                scene.add(ghost);
+                ghosts.push(ghost);
             }
         }
 
-        // Function to get a random Halloween object (using basic geometries)
-        function getRandomHalloweenObject() {
-            const random = Math.random();
-            if (random < 0.5) {
-                // Create a pumpkin
-                const pumpkinGeometry = new THREE.SphereGeometry(0.2, 32, 32);
-                const pumpkinMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600 });
-                const pumpkin = new THREE.Mesh(pumpkinGeometry, pumpkinMaterial);
-                
-                // Add stem
-                const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8);
-                const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-                const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-                stem.position.y = 0.25;
-                pumpkin.add(stem);
-                
-                return pumpkin;
-            } else {
-                // Create a ghost
-                const ghostGeometry = new THREE.SphereGeometry(0.15, 16, 16);
-                const ghostMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
-                const ghost = new THREE.Mesh(ghostGeometry, ghostMaterial);
-                ghost.scale.y = 1.2; // Make it slightly elongated
-                return ghost;
+        function createGhost() {
+            const ghostGroup = new THREE.Group();
+
+            const sphereGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+            const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            ghostGroup.add(sphere);
+
+            const tentacleGeometry = new THREE.CylinderGeometry(0.005, 0.005, 0.3, 8);
+            const tentacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
+
+            for (let i = -2; i <= 2; i++) {
+                const tentacle = new THREE.Mesh(tentacleGeometry, tentacleMaterial);
+                tentacle.position.set(i * 0.05, -0.15, 0);
+                tentacle.rotation.z = Math.PI / 4;
+                ghostGroup.add(tentacle);
             }
+
+            ghostGroup.scale.set(1, 1, 1);
+            ghostGroup.userData = { floatOffset: Math.random() * Math.PI * 2 };
+
+            return ghostGroup;
         }
 
-        // Animation loop
         function animate() {
             renderer.setAnimationLoop(render);
         }
 
-        function render(timestamp, frame) {
+        function render(time, frame) {
             if (frame) {
                 const referenceSpace = renderer.xr.getReferenceSpace();
                 const session = renderer.xr.getSession();
 
-                // Perform hit-test
+                if (session.hitTestSource === undefined) {
+                    session.requestReferenceSpace('viewer').then(function(referenceSpace) {
+                        session.requestHitTestSource({ space: referenceSpace }).then(function(source) {
+                            session.hitTestSource = source;
+                        });
+                    });
+                }
+
                 if (session.hitTestSource) {
                     const hitTestResults = frame.getHitTestResults(session.hitTestSource);
                     if (hitTestResults.length) {
@@ -144,33 +140,14 @@
                 }
             }
 
-            // Optional: Animate objects (e.g., make ghosts float)
-            objects.forEach(obj => {
-                if (obj.material.opacity < 1) {
-                    obj.material.opacity += 0.005;
-                    if (obj.material.opacity >= 1) obj.material.opacity = 1;
-                }
+            // Animate ghosts
+            ghosts.forEach(ghost => {
+                ghost.rotation.y += 0.01;
+                ghost.position.y += Math.sin(ghost.userData.floatOffset + Date.now() * 0.001) * 0.001;
             });
 
             renderer.render(scene, camera);
         }
-
-        // Initialize hit-test
-        renderer.xr.addEventListener('sessionstart', () => {
-            const session = renderer.xr.getSession();
-            session.requestReferenceSpace('viewer').then((refSpace) => {
-                session.requestHitTestSource({ space: refSpace }).then((hitTestSource) => {
-                    session.hitTestSource = hitTestSource;
-                }).catch((err) => {
-                    console.error('Hit test source failed:', err);
-                });
-            });
-        });
-
-        renderer.xr.addEventListener('sessionend', () => {
-            const session = renderer.xr.getSession();
-            session.hitTestSource = null;
-        });
     </script>
 </body>
 </html>
