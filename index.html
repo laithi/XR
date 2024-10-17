@@ -8,8 +8,8 @@
             margin: 0; 
             overflow: hidden; 
             font-family: 'Creepster', cursive;
-            background: url('https://i.imgur.com/8Iu5R8Q.jpg') no-repeat center center fixed; 
-            background-size: cover;
+            /* Removed background image for AR */
+            background: transparent;
         }
         #info {
             position: absolute;
@@ -29,14 +29,6 @@
             font-size: 1.2em;
         }
         @import url('https://fonts.googleapis.com/css2?family=Creepster&display=swap');
-        /* Reticle Style */
-        .reticle {
-            border: 2px solid #FF7518;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            opacity: 0.8;
-        }
     </style>
 </head>
 <body>
@@ -60,7 +52,7 @@
         function init() {
             // Scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000000);
+            scene.background = null; // Important for AR: transparent to show camera
 
             // Camera
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
@@ -68,6 +60,7 @@
             // Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
             renderer.xr.enabled = true;
             document.body.appendChild(renderer.domElement);
 
@@ -106,6 +99,7 @@
                 pumpkin.position.setFromMatrixPosition(reticle.matrix);
                 scene.add(pumpkin);
                 pumpkins.push(pumpkin);
+                console.log('Pumpkin placed at', pumpkin.position);
             }
         }
 
@@ -147,8 +141,8 @@
                 const session = renderer.xr.getSession();
 
                 if (!hitTestSourceRequested) {
-                    session.requestReferenceSpace('viewer').then((referenceSpace) => {
-                        session.requestHitTestSource({ space: referenceSpace }).then((source) => {
+                    session.requestReferenceSpace('viewer').then((refSpace) => {
+                        session.requestHitTestSource({ space: refSpace }).then((source) => {
                             hitTestSource = source;
                         }).catch((err) => {
                             console.error('Hit test source failed:', err);
@@ -170,7 +164,7 @@
                 }
             }
 
-            // Animate pumpkins (e.g., slight bobbing)
+            // Animate pumpkins (e.g., slight bobbing and rotation)
             pumpkins.forEach(pumpkin => {
                 pumpkin.rotation.y += 0.005;
                 pumpkin.position.y += Math.sin(Date.now() * 0.001) * 0.001;
