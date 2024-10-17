@@ -2,13 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AR Halloween Pumpkins</title>
+    <title>AR Halloween Spheres</title>
     <style>
         body { 
             margin: 0; 
             overflow: hidden; 
             font-family: 'Creepster', cursive;
-            /* Removed background image for AR */
             background: transparent;
         }
         #info {
@@ -33,7 +32,7 @@
 </head>
 <body>
     <div id="info">
-        <p>🕸️ Tap the screen to place Halloween pumpkins in your environment! 🎃</p>
+        <p>🕸️ Tap the screen to place spooky spheres in your environment! 🎃</p>
     </div>
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.module.js';
@@ -44,7 +43,7 @@
         let reticle;
         let hitTestSource = null;
         let hitTestSourceRequested = false;
-        const pumpkins = [];
+        const spheres = [];
 
         init();
         animate();
@@ -52,7 +51,7 @@
         function init() {
             // Scene
             scene = new THREE.Scene();
-            scene.background = null; // Important for AR: transparent to show camera
+            scene.background = null; // Transparent background for AR
 
             // Camera
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
@@ -95,40 +94,19 @@
 
         function onSelect() {
             if (reticle.visible) {
-                const pumpkin = createPumpkin();
-                pumpkin.position.setFromMatrixPosition(reticle.matrix);
-                scene.add(pumpkin);
-                pumpkins.push(pumpkin);
-                console.log('Pumpkin placed at', pumpkin.position);
+                const sphere = createSphere();
+                sphere.position.setFromMatrixPosition(reticle.matrix);
+                scene.add(sphere);
+                spheres.push(sphere);
+                console.log('Sphere placed at', sphere.position);
             }
         }
 
-        function createPumpkin() {
-            const pumpkinGroup = new THREE.Group();
-
-            // Pumpkin body
-            const pumpkinGeometry = new THREE.SphereGeometry(0.2, 32, 32);
-            const pumpkinMaterial = new THREE.MeshStandardMaterial({ color: 0xFF7518, emissive: 0xFF7518, emissiveIntensity: 0.2 });
-            const pumpkin = new THREE.Mesh(pumpkinGeometry, pumpkinMaterial);
-            pumpkin.position.y = 0.2;
-            pumpkinGroup.add(pumpkin);
-
-            // Pumpkin stem
-            const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8);
-            const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x4B3621 });
-            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-            stem.position.y = 0.25;
-            stem.rotation.x = Math.PI / 4;
-            pumpkinGroup.add(stem);
-
-            // Glow Effect
-            const glowGeometry = new THREE.SphereGeometry(0.25, 32, 32);
-            const glowMaterial = new THREE.MeshBasicMaterial({ color: 0xFF7518, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
-            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-            glow.position.y = 0.2;
-            pumpkinGroup.add(glow);
-
-            return pumpkinGroup;
+        function createSphere() {
+            const sphereGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+            const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xFF7518, emissive: 0xFF7518, emissiveIntensity: 0.5 });
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            return sphere;
         }
 
         function animate() {
@@ -164,10 +142,10 @@
                 }
             }
 
-            // Animate pumpkins (e.g., slight bobbing and rotation)
-            pumpkins.forEach(pumpkin => {
-                pumpkin.rotation.y += 0.005;
-                pumpkin.position.y += Math.sin(Date.now() * 0.001) * 0.001;
+            // Animate spheres (e.g., slight bobbing and rotation)
+            spheres.forEach(sphere => {
+                sphere.rotation.y += 0.01;
+                sphere.position.y += Math.sin(Date.now() * 0.001) * 0.001;
             });
 
             renderer.render(scene, camera);
