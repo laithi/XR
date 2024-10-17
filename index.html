@@ -4,23 +4,44 @@
     <meta charset="UTF-8">
     <title>AR Halloween Pumpkins</title>
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: 'Creepster', cursive;
+            background: url('https://i.imgur.com/8Iu5R8Q.jpg') no-repeat center center fixed; 
+            background-size: cover;
+        }
         #info {
             position: absolute;
-            top: 10px;
+            top: 20px;
             width: 100%;
             text-align: center;
-            z-index: 1;
-            color: white;
-            font-family: Arial, sans-serif;
-            padding: 5px;
-            background: rgba(0, 0, 0, 0.5);
+            z-index: 2;
+            color: #FF7518;
+            font-family: 'Creepster', cursive;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border-bottom: 2px solid #FF7518;
+            box-shadow: 0 0 10px #FF7518;
+        }
+        #info p {
+            margin: 0;
+            font-size: 1.2em;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Creepster&display=swap');
+        /* Reticle Style */
+        .reticle {
+            border: 2px solid #FF7518;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            opacity: 0.8;
         }
     </style>
 </head>
 <body>
     <div id="info">
-        <p>Tap the screen to place Halloween pumpkins in your environment!</p>
+        <p>🕸️ Tap the screen to place Halloween pumpkins in your environment! 🎃</p>
     </div>
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.module.js';
@@ -64,7 +85,7 @@
 
             // Reticle
             const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(- Math.PI / 2);
-            const material = new THREE.MeshBasicMaterial({ color: 0x0fff00 });
+            const material = new THREE.MeshBasicMaterial({ color: 0xFF7518 });
             reticle = new THREE.Mesh(geometry, material);
             reticle.visible = false;
             scene.add(reticle);
@@ -93,18 +114,25 @@
 
             // Pumpkin body
             const pumpkinGeometry = new THREE.SphereGeometry(0.2, 32, 32);
-            const pumpkinMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600 });
+            const pumpkinMaterial = new THREE.MeshStandardMaterial({ color: 0xFF7518, emissive: 0xFF7518, emissiveIntensity: 0.2 });
             const pumpkin = new THREE.Mesh(pumpkinGeometry, pumpkinMaterial);
             pumpkin.position.y = 0.2;
             pumpkinGroup.add(pumpkin);
 
             // Pumpkin stem
             const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8);
-            const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x4B3621 });
             const stem = new THREE.Mesh(stemGeometry, stemMaterial);
             stem.position.y = 0.25;
             stem.rotation.x = Math.PI / 4;
             pumpkinGroup.add(stem);
+
+            // Glow Effect
+            const glowGeometry = new THREE.SphereGeometry(0.25, 32, 32);
+            const glowMaterial = new THREE.MeshBasicMaterial({ color: 0xFF7518, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending });
+            const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+            glow.position.y = 0.2;
+            pumpkinGroup.add(glow);
 
             return pumpkinGroup;
         }
@@ -122,6 +150,8 @@
                     session.requestReferenceSpace('viewer').then((referenceSpace) => {
                         session.requestHitTestSource({ space: referenceSpace }).then((source) => {
                             hitTestSource = source;
+                        }).catch((err) => {
+                            console.error('Hit test source failed:', err);
                         });
                     });
                     hitTestSourceRequested = true;
@@ -139,6 +169,12 @@
                     }
                 }
             }
+
+            // Animate pumpkins (e.g., slight bobbing)
+            pumpkins.forEach(pumpkin => {
+                pumpkin.rotation.y += 0.005;
+                pumpkin.position.y += Math.sin(Date.now() * 0.001) * 0.001;
+            });
 
             renderer.render(scene, camera);
         }
