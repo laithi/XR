@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AR Halloween Ghosts</title>
+    <title>AR Halloween Pumpkins</title>
     <style>
         body { margin: 0; overflow: hidden; }
         #info {
@@ -20,7 +20,7 @@
 </head>
 <body>
     <div id="info">
-        <p>Tap the screen to place spooky ghosts in your environment!</p>
+        <p>Tap the screen to place Halloween pumpkins in your environment!</p>
     </div>
     <script type="module">
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.module.js';
@@ -29,7 +29,9 @@
         let camera, scene, renderer;
         let controller;
         let reticle;
-        const ghosts = [];
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        const pumpkins = [];
 
         init();
         animate();
@@ -67,7 +69,7 @@
             reticle.visible = false;
             scene.add(reticle);
 
-            // Window resize
+            // Handle window resize
             window.addEventListener('resize', onWindowResize, false);
         }
 
@@ -79,56 +81,54 @@
 
         function onSelect() {
             if (reticle.visible) {
-                const ghost = createGhost();
-                ghost.position.setFromMatrixPosition(reticle.matrix);
-                scene.add(ghost);
-                ghosts.push(ghost);
+                const pumpkin = createPumpkin();
+                pumpkin.position.setFromMatrixPosition(reticle.matrix);
+                scene.add(pumpkin);
+                pumpkins.push(pumpkin);
             }
         }
 
-        function createGhost() {
-            const ghostGroup = new THREE.Group();
+        function createPumpkin() {
+            const pumpkinGroup = new THREE.Group();
 
-            const sphereGeometry = new THREE.SphereGeometry(0.2, 32, 32);
-            const sphereMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
-            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            ghostGroup.add(sphere);
+            // Pumpkin body
+            const pumpkinGeometry = new THREE.SphereGeometry(0.2, 32, 32);
+            const pumpkinMaterial = new THREE.MeshStandardMaterial({ color: 0xff6600 });
+            const pumpkin = new THREE.Mesh(pumpkinGeometry, pumpkinMaterial);
+            pumpkin.position.y = 0.2;
+            pumpkinGroup.add(pumpkin);
 
-            const tentacleGeometry = new THREE.CylinderGeometry(0.005, 0.005, 0.3, 8);
-            const tentacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 });
+            // Pumpkin stem
+            const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.05, 8);
+            const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+            stem.position.y = 0.25;
+            stem.rotation.x = Math.PI / 4;
+            pumpkinGroup.add(stem);
 
-            for (let i = -2; i <= 2; i++) {
-                const tentacle = new THREE.Mesh(tentacleGeometry, tentacleMaterial);
-                tentacle.position.set(i * 0.05, -0.15, 0);
-                tentacle.rotation.z = Math.PI / 4;
-                ghostGroup.add(tentacle);
-            }
-
-            ghostGroup.scale.set(1, 1, 1);
-            ghostGroup.userData = { floatOffset: Math.random() * Math.PI * 2 };
-
-            return ghostGroup;
+            return pumpkinGroup;
         }
 
         function animate() {
             renderer.setAnimationLoop(render);
         }
 
-        function render(time, frame) {
+        function render(timestamp, frame) {
             if (frame) {
                 const referenceSpace = renderer.xr.getReferenceSpace();
                 const session = renderer.xr.getSession();
 
-                if (session.hitTestSource === undefined) {
-                    session.requestReferenceSpace('viewer').then(function(referenceSpace) {
-                        session.requestHitTestSource({ space: referenceSpace }).then(function(source) {
-                            session.hitTestSource = source;
+                if (!hitTestSourceRequested) {
+                    session.requestReferenceSpace('viewer').then((referenceSpace) => {
+                        session.requestHitTestSource({ space: referenceSpace }).then((source) => {
+                            hitTestSource = source;
                         });
                     });
+                    hitTestSourceRequested = true;
                 }
 
-                if (session.hitTestSource) {
-                    const hitTestResults = frame.getHitTestResults(session.hitTestSource);
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
                     if (hitTestResults.length) {
                         const hit = hitTestResults[0];
                         const pose = hit.getPose(referenceSpace);
@@ -139,12 +139,6 @@
                     }
                 }
             }
-
-            // Animate ghosts
-            ghosts.forEach(ghost => {
-                ghost.rotation.y += 0.01;
-                ghost.position.y += Math.sin(ghost.userData.floatOffset + Date.now() * 0.001) * 0.001;
-            });
 
             renderer.render(scene, camera);
         }
