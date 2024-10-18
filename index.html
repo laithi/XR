@@ -41,7 +41,7 @@
   <button id="ar-button">Enter AR</button>
 
   <!-- Three.js Library -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
   <!-- Three.js ARButton -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/webxr/ARButton.js"></script>
   <!-- Three.js GLTFLoader for loading models -->
@@ -74,9 +74,18 @@
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
 
+    // Create a reticle for visual feedback
+    const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
+    const reticleMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const reticle = new THREE.Mesh(reticleGeometry, reticleMaterial);
+    reticle.matrixAutoUpdate = false;
+    reticle.visible = false;
+    scene.add(reticle);
+
     // Hit Test Source and Reference Space
     let hitTestSource = null;
     let localReferenceSpace = null;
+    let latestFrame = null;
 
     renderer.xr.addEventListener('sessionstart', () => {
       const session = renderer.xr.getSession();
@@ -92,6 +101,7 @@
 
     renderer.xr.addEventListener('sessionend', () => {
       hitTestSource = null;
+      reticle.visible = false;
     });
 
     // Load Halloween Models
@@ -102,9 +112,11 @@
 
     // Function to add a pumpkin at a given position
     function addPumpkin(position) {
+      console.log('Adding pumpkin at position:', position);
       loader.load(
-        'https://github.com/laithi/arjstest/blob/main/future%20museum.gltf', // Example pumpkin model URL
+        'https://github.com/laithi/arjstest/blob/main/future%20museum.gltf', // Correct raw URL
         function (gltf) {
+          console.log('Pumpkin model loaded successfully');
           const pumpkin = gltf.scene;
           pumpkin.scale.set(0.5, 0.5, 0.5);
           pumpkin.position.copy(position);
@@ -120,9 +132,11 @@
 
     // Function to add a ghost at a given position
     function addGhost(position) {
+      console.log('Adding ghost at position:', position);
       loader.load(
         'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Ghost/glTF/Ghost.gltf', // Example ghost model URL
         function (gltf) {
+          console.log('Ghost model loaded successfully');
           const ghost = gltf.scene;
           ghost.scale.set(0.3, 0.3, 0.3);
           ghost.position.copy(position);
@@ -141,29 +155,42 @@
     window.addEventListener('click', onTouchEnd, false);
 
     function onTouchEnd(event) {
-      if (!hitTestSource) return;
+      console.log('Touch or Click detected');
+      if (!hitTestSource || !latestFrame) {
+        console.log('Hit test source or latest frame not available');
+        return;
+      }
 
-      const touch = event.touches ? event.touches[0] : null;
-      const x = touch ? (touch.clientX / window.innerWidth) * 2 - 1 : 0;
-      const y = touch ? -(touch.clientY / window.innerHeight) * 2 + 1 : 0;
+      // Get touch position
+      let touch = event.changedTouches ? event.changedTouches[0] : null;
+      let x = 0;
+      let y = 0;
 
-      const frame = renderer.xr.getSession().getFrame();
-      const pose = frame.getViewerPose(localReferenceSpace);
+      if (touch) {
+        x = (touch.clientX / window.innerWidth) * 2 - 1;
+        y = -(touch.clientY / window.innerHeight) * 2 + 1;
+      }
 
-      if (pose) {
-        const hitTestResults = frame.getHitTestResults(hitTestSource);
-        if (hitTestResults.length > 0) {
-          const hit = hitTestResults[0];
-          const poseHit = hit.getPose(localReferenceSpace);
-          const position = new THREE.Vector3().fromArray(poseHit.transform.position);
+      const frame = latestFrame;
+      const referenceSpace = localReferenceSpace;
 
-          // Randomly decide to place a pumpkin or a ghost
-          if (Math.random() > 0.5) {
-            addPumpkin(position);
-          } else {
-            addGhost(position);
-          }
+      const hitTestResults = frame.getHitTestResults(hitTestSource);
+      if (hitTestResults.length > 0) {
+        const hit = hitTestResults[0];
+        const hitPose = hit.getPose(referenceSpace);
+
+        const position = new THREE.Vector3().fromArray(hitPose.transform.position);
+
+        console.log('Hit test successful, placing object at:', position);
+
+        // Randomly decide to place a pumpkin or a ghost
+        if (Math.random() > 0.5) {
+          addPumpkin(position);
+        } else {
+          addGhost(position);
         }
+      } else {
+        console.log('No hit test results');
       }
     }
 
@@ -173,6 +200,23 @@
     }
 
     function render(timestamp, frame) {
+      latestFrame = frame; // Store the latest frame for hit testing
+
+      if (hitTestSource && frame) {
+        const referenceSpace = localReferenceSpace;
+        const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+        if (hitTestResults.length > 0) {
+          const hit = hitTestResults[0];
+          const hitPose = hit.getPose(referenceSpace);
+
+          reticle.visible = true;
+          reticle.matrix.fromArray(hitPose.transform.matrix);
+        } else {
+          reticle.visible = false;
+        }
+      }
+
       renderer.render(scene, camera);
     }
 
