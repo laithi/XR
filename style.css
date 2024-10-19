@@ -1,52 +1,35 @@
-/* styles.css */
-
 body {
-  margin: 0;
-  overflow: hidden;
-  font-family: Arial, sans-serif;
-  background-color: #000;
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
 }
 
-#score {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  color: white;
-  background: rgba(0,0,0,0.5);
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 24px;
-  z-index: 1;
+#inventory {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 200px;
 }
 
-#instructions {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: white;
-  background: rgba(0,0,0,0.5);
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 16px;
-  z-index: 1;
+#inventory h2 {
+    margin: 0 0 10px 0;
+    font-size: 18px;
 }
 
-#startButton {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 15px 30px;
-  font-size: 20px;
-  background-color: #ff5722;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  z-index: 2;
+#inventory-items {
+    display: flex;
+    flex-wrap: wrap;
 }
 
-#startButton:hover {
-  background-color: #e64a19;
+.inventory-item {
+    width: 40px;
+    height: 40px;
+    margin: 5px;
+    background-size: cover;
+    border: 2px solid #fff;
+    border-radius: 4px;
 }
