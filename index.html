@@ -9,9 +9,12 @@
     </style>
 </head>
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/examples/jsm/webxr/VRButton.js"></script>
-    <script>
+    <!-- استخدام type="module" لتحميل ملفات ES6 Modules -->
+    <script type="module">
+        // استيراد مكتبة Three.js و VRButton من CDN
+        import * as THREE from 'https://unpkg.com/three@0.148.0/build/three.module.js';
+        import { VRButton } from 'https://unpkg.com/three@0.148.0/examples/jsm/webxr/VRButton.js';
+
         // إنشاء المشهد
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x000000); // خلفية سوداء لإضفاء جو مظلم
@@ -39,7 +42,12 @@
 
         // تحميل خريطة قشرة اليقطين
         const textureLoader = new THREE.TextureLoader();
-        const pumpkinTexture = textureLoader.load('https://threejsfundamentals.org/threejs/resources/images/flower-1.jpg'); // يمكنك استبدالها بخريطة يقطين حقيقية
+        const pumpkinTexture = textureLoader.load(
+            'https://threejsfundamentals.org/threejs/resources/images/flower-1.jpg', // استبدلها بخريطة يقطين حقيقية إن وجدت
+            () => { renderer.render(scene, camera); }, // onLoad
+            undefined, // onProgress
+            (err) => { console.error('فشل تحميل الخامة', err); } // onError
+        );
 
         // إنشاء مادة اليقطين
         const pumpkinMaterial = new THREE.MeshStandardMaterial({ 
