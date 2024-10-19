@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Halloween WebXR AR Experience</title>
     <style>
-        body { margin: 0; }
+        body { margin: 0; overflow: hidden; }
         canvas { display: block; }
         #ar-button { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); }
     </style>
@@ -13,76 +13,38 @@
 <body>
     <script type="module">
         import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+        import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/ARButton.js';
 
         let camera, scene, renderer;
-        let controller;
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        const pumpkins = [];
 
         init();
+        animate();
 
         function init() {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
-
+            // Create scene and camera
             scene = new THREE.Scene();
-
             camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
 
+            // Setup renderer
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.xr.enabled = true;
-            container.appendChild(renderer.domElement);
+            document.body.appendChild(renderer.domElement);
 
+            // Add hemisphere light
             const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
             light.position.set(0.5, 1, 0.25);
             scene.add(light);
 
-            // Create and add multiple pumpkins
-            for (let i = 0; i < 10; i++) {
-                const pumpkin = createPumpkin();
-                pumpkin.position.set(
-                    Math.random() * 2 - 1,
-                    Math.random() * 0.5,
-                    Math.random() * -2 - 1
-                );
-                scene.add(pumpkin);
-            }
+            // Initialize AR Button
+            document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
 
-            controller = renderer.xr.getController(0);
-            scene.add(controller);
-
-            const button = ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] });
-            document.body.appendChild(button);
-
+            // Handle window resize
             window.addEventListener('resize', onWindowResize, false);
-
-            animate();
-        }
-
-        function createPumpkin() {
-            const pumpkinGeometry = new THREE.SphereGeometry(0.1, 16, 16);
-            const pumpkinMaterial = new THREE.MeshPhongMaterial({ color: 0xff6600 });
-            const pumpkin = new THREE.Mesh(pumpkinGeometry, pumpkinMaterial);
-
-            const eyeGeometry = new THREE.SphereGeometry(0.02, 8, 8);
-            const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-            
-            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-            leftEye.position.set(-0.035, 0.025, 0.075);
-            pumpkin.add(leftEye);
-
-            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-            rightEye.position.set(0.035, 0.025, 0.075);
-            pumpkin.add(rightEye);
-
-            const mouthGeometry = new THREE.TorusGeometry(0.03, 0.01, 8, 6, Math.PI);
-            const mouthMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-            const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
-            mouth.position.set(0, -0.025, 0.075);
-            mouth.rotation.set(0, 0, Math.PI / 2);
-            pumpkin.add(mouth);
-
-            return pumpkin;
         }
 
         function onWindowResize() {
@@ -100,72 +62,91 @@
                 const referenceSpace = renderer.xr.getReferenceSpace();
                 const session = renderer.xr.getSession();
 
-                if (session && session.requestHitTest) {
-                    session.requestHitTest(new XRRay(), referenceSpace)
-                       .then((results) => {
-                            if (results.length) {
-                                const hitPose = results[0].getPose(referenceSpace);
-                                updatePumpkins(hitPose.transform.matrix);
-                            }
-                        })
-                       .catch((error) => {
-                            console.error('Hit test failed:', error);
+                if (hitTestSourceRequested === false) {
+                    session.requestReferenceSpace('viewer').then((refSpace) => {
+                        session.requestHitTestSource({ space: refSpace }).then((source) => {
+                            hitTestSource = source;
                         });
+                    });
+
+                    session.addEventListener('end', () => {
+                        hitTestSourceRequested = false;
+                        hitTestSource = null;
+                    });
+
+                    hitTestSourceRequested = true;
+                }
+
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+                    if (hitTestResults.length > 0) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(referenceSpace);
+
+                        // Create pumpkins at hit-test locations
+                        // For demonstration, we'll add a pumpkin at the hit location once
+                        if (pumpkins.length === 0) {
+                            const pumpkin = createPumpkin();
+                            pumpkin.position.set(
+                                pose.transform.position.x,
+                                pose.transform.position.y,
+                                pose.transform.position.z
+                            );
+                            scene.add(pumpkin);
+                            pumpkins.push(pumpkin);
+                        }
+                    }
                 }
             }
+
+            // Animate pumpkins
+            pumpkins.forEach((pumpkin) => {
+                pumpkin.rotation.y += 0.01;
+                pumpkin.position.y += Math.sin(Date.now() * 0.001 + pumpkin.position.x) * 0.002;
+            });
 
             renderer.render(scene, camera);
         }
 
-        function updatePumpkins(matrix) {
-            scene.children.forEach((child) => {
-                if (child instanceof THREE.Mesh && child.geometry instanceof THREE.SphereGeometry) {
-                    child.position.setFromMatrixPosition(matrix);
-                    child.position.y += Math.sin(Date.now() * 0.001 + child.position.x) * 0.02;
-                    child.rotation.y += 0.01;
-                }
-            });
+        function createPumpkin() {
+            const pumpkinGroup = new THREE.Group();
+
+            // Pumpkin body
+            const pumpkinGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+            const pumpkinMaterial = new THREE.MeshPhongMaterial({ color: 0xff6600 });
+            const pumpkin = new THREE.Mesh(pumpkinGeometry, pumpkinMaterial);
+            pumpkinGroup.add(pumpkin);
+
+            // Eyes
+            const eyeGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+            const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.035, 0.025, 0.075);
+            pumpkinGroup.add(leftEye);
+
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.035, 0.025, 0.075);
+            pumpkinGroup.add(rightEye);
+
+            // Mouth
+            const mouthShape = new THREE.Shape();
+            mouthShape.moveTo(-0.03, 0);
+            mouthShape.lineTo(0, -0.02);
+            mouthShape.lineTo(0.03, 0);
+            mouthShape.lineTo(0, 0.02);
+            mouthShape.lineTo(-0.03, 0);
+
+            const mouthGeometry = new THREE.ExtrudeGeometry(mouthShape, { depth: 0.01, bevelEnabled: false });
+            const mouthMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
+            mouth.position.set(-0.03, -0.025, 0.075);
+            mouth.rotation.set(0, 0, Math.PI / 2);
+            pumpkinGroup.add(mouth);
+
+            return pumpkinGroup;
         }
-
-        const XRRay = class {
-            constructor() {
-                this.origin = new THREE.Vector3();
-                this.direction = new THREE.Vector3();
-            }
-        };
-
-        const ARButton = {
-            createButton(renderer, sessionInit = {}) {
-                const button = document.createElement('button');
-                button.id = 'ar-button';
-                button.textContent = 'START AR';
-
-                function onSessionStarted(session) {
-                    session.addEventListener('end', onSessionEnded);
-                    renderer.xr.setReferenceSpaceType('local');
-                    renderer.xr.setSession(session);
-                    button.textContent = 'STOP AR';
-                    animate();
-                }
-
-                function onSessionEnded() {
-                    renderer.xr.setSession(null);
-                    button.textContent = 'START AR';
-                }
-
-                button.onclick = function () {
-                    if (renderer.xr.isPresenting) {
-                        renderer.xr.getSession().end();
-                    } else {
-                        navigator.xr.requestSession('immersive-ar', sessionInit).then(onSessionStarted).catch((error) => {
-                            console.error('Failed to request AR session:', error);
-                        });
-                    }
-                };
-
-                return button;
-            }
-        };
     </script>
 </body>
 </html>
